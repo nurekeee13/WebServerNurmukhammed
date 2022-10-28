@@ -3,6 +3,7 @@ package org.example;
 import java.io.*;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Scanner;
 
 /**
  * Processor of HTTP request.
@@ -15,6 +16,17 @@ public class Processor{
     public Processor(Socket socket, HttpRequest request) {
         this.socket = socket;
         this.request = request;
+    }
+
+    void PrintFiles(File[] arr, int index, int level) {
+        if (index == arr.length) return;
+        for (int i = 0; i < level; i++) this.response += "&nbsp;&nbsp;&nbsp;";
+        if (arr[index].isFile()) this.response += arr[index].getName() + "<br>";
+        else if (arr[index].isDirectory()) {
+            this.response += "[" + arr[index].getName() + "]<br>";
+            PrintFiles(arr[index].listFiles(), 0, level + 1);
+        }
+        PrintFiles(arr, ++index, level);
     }
 
     int toInt(String s){
@@ -50,6 +62,23 @@ public class Processor{
     }
 
     public void process() throws IOException {
+        int numOfThreads = 4;
+        int numOfItems = 100;
+        ThreadSafeQueue<String> queue = new ThreadSafeQueue<>();
+
+        // Starting consumer threads.
+        for (int i = 0; i < numOfThreads; i++) {
+            Consumer<String> cons = new Consumer<>(i, queue);
+            cons.start();
+        }
+        for (int i = 0; i < numOfItems; i++) {
+            queue.add("item " + i);
+        }
+
+        // Stopping consumers by sending them null values.
+        for (int i = 0; i < numOfThreads; i++) {
+            queue.add(null);
+        }
         System.out.println("Got request:");
         System.out.println(request.toString());
         System.out.flush();
@@ -122,6 +151,17 @@ public class Processor{
                 this.response += strCurrentLine;
             }
             myReader.close();
+        }
+        else if(s.charAt(5) == 't' && s.charAt(6) == 'r' && s.charAt(7) == 'e' && s.charAt(8) == 'e'){
+            String maindirpath = "/Users/adiletkemelkhan/IdeaProjects/WebServer";
+            File maindir = new File(maindirpath);
+            if (maindir.exists() && maindir.isDirectory()) {
+                File arr[] = maindir.listFiles();
+                this.response += "**********************************************<br>";
+                this.response += "Files from main directory : " + maindir + "<br>";
+                this.response += "**********************************************<br>";
+                PrintFiles(arr, 0, 0);
+            }
         }
         else if(s.contains("eratothenes_sieve")){
             int pos = 7;
